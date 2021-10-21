@@ -62,7 +62,7 @@ class Transform:
             The method for transforming categorical variables. Either None,
             "one-hot" or "descriptors". Descriptors must be included in the
             categorical variables for the later. Defaults to one-hot.
-
+        
         Returns
         -------
         inputs, outputs
@@ -384,9 +384,12 @@ class Transform:
     @staticmethod
     def standardize_column(X):
         X = X.to_numpy()
-        mean, std = X.mean(), X.std()
+        nanrows = ~np.isnan(X)
+        Xnonan = X[nanrows]
+        mean, std = Xnonan.mean(), Xnonan.std()
         std = std if std > 1e-5 else 1e-5
         scaled = (X - mean) / std
+        
         return scaled, mean, std
 
 
