@@ -209,15 +209,19 @@ class TSEMO(Strategy):
         for i, v in enumerate(self.domain.output_variables):
             # Training
             models[i] = ThompsonSampledModel(v.name)
+            
+            # filter nan values for each output in self.domain.output_variables
+            rowsnonan = np.logical_and(~outputs[[v.name]].isna().values[:,0], ~inputs.isna().values[:,0])
+            
             train_results[i] = models[i].fit(
-                inputs, outputs[[v.name]], n_retries=self.n_retries, n_spectral_points=self.n_spectral_points,
+                inputs.loc[rowsnonan], outputs[[v.name]].loc[rowsnonan], n_retries=self.n_retries
             )
-
+            
             # Evaluate spectral sampled functions
             sample_f = lambda x: np.atleast_2d(models[i].rff(x)).T
             rmse_train_spectral[i] = rmse(
-                sample_f(inputs.to_numpy().astype("float")),
-                outputs[[v.name]].to_numpy().astype("float"),
+                sample_f(inputs.to_numpy().astype("float")[rowsnonan]),
+                outputs[[v.name]].to_numpy().astype("float")[rowsnonan],
                 mean=self.transform.output_means[v.name],
                 std=self.transform.output_stds[v.name],
             )
@@ -526,9 +530,12 @@ class ThompsonSampledModel:
         # Convert to tensors
         X_np = X.to_numpy().astype(float)
         y_np = y.to_numpy().astype(float)
+        #rows = np.logical_and(~np.any(np.isnan(y_np), axis=1), ~np.any(np.isnan(X_np), axis=1))
+        #X = torch.from_numpy(X_np[rows,:])
+        #y = torch.from_numpy(y_np[rows,:])
         X = torch.from_numpy(X_np)
         y = torch.from_numpy(y_np)
-
+        
         # Train the GP model
         self.model = SingleTaskGP(X, y)
         mll = ExactMarginalLogLikelihood(self.model.likelihood, self.model)
